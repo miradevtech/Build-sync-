@@ -6,9 +6,11 @@ import { ModalKey } from '../types';
 interface NavbarProps {
   onOpenModal: (key: ModalKey) => void;
   onOpenAuth: () => void;
+  isLoggedIn?: boolean;
+  userName?: string;
 }
 
-export default function Navbar({ onOpenModal, onOpenAuth }: NavbarProps) {
+export default function Navbar({ onOpenModal, onOpenAuth, isLoggedIn, userName }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
@@ -143,14 +145,23 @@ export default function Navbar({ onOpenModal, onOpenAuth }: NavbarProps) {
               <span>Consultation</span>
             </button>
 
-            {/* Primary Client Login Button */}
+            {/* Primary Client Login / Portal Button */}
             <button
               onClick={onOpenAuth}
               className="bg-gradient-to-r from-brand-gold via-[#d4b374] to-brand-gold hover:from-brand-gold-hover hover:to-brand-gold text-brand-bg px-4 sm:px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-[0_4px_20px_rgba(197,160,89,0.35)] hover:shadow-[0_4px_25px_rgba(197,160,89,0.5)] active:scale-95 whitespace-nowrap flex items-center gap-1.5 cursor-pointer font-sans border border-white/30"
-              title="Sign in to Client Portal"
+              title={isLoggedIn ? "Open Client Dashboard" : "Sign in to Client Portal"}
             >
-              <LogIn size={14} className="text-brand-bg" />
-              <span>Client Login</span>
+              {isLoggedIn ? (
+                <>
+                  <Compass size={14} className="text-brand-bg animate-pulse" />
+                  <span>Dashboard</span>
+                </>
+              ) : (
+                <>
+                  <LogIn size={14} className="text-brand-bg" />
+                  <span>Client Login</span>
+                </>
+              )}
             </button>
 
             {/* Mobile Menu Toggle Button */}
@@ -228,8 +239,17 @@ export default function Navbar({ onOpenModal, onOpenAuth }: NavbarProps) {
                   }}
                   className="w-full bg-brand-gold text-brand-bg px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-brand-gold-hover transition-all text-center font-bold flex items-center justify-center gap-2 shadow-lg shadow-brand-gold/20 cursor-pointer"
                 >
-                  <LogIn size={15} className="text-brand-bg" />
-                  <span>Client Login</span>
+                  {isLoggedIn ? (
+                    <>
+                      <Compass size={15} className="text-brand-bg" />
+                      <span>Open Dashboard</span>
+                    </>
+                  ) : (
+                    <>
+                      <LogIn size={15} className="text-brand-bg" />
+                      <span>Client Login</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

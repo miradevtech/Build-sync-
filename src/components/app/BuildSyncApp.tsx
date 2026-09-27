@@ -54,7 +54,7 @@ interface BuildSyncAppProps {
 }
 
 export default function BuildSyncApp({ 
-  initialRole = 'admin', 
+  initialRole = 'client', 
   userName, 
   userEmail, 
   userAvatar,
@@ -62,11 +62,18 @@ export default function BuildSyncApp({
   onReturnHome,
   onUpdateProfileName 
 }: BuildSyncAppProps) {
-  const [role, setRole] = useState<UserRole>(initialRole);
+  const [role, setRole] = useState<UserRole>(initialRole || 'client');
   const [profilePic, setProfilePic] = useState<string | null>(userAvatar || null);
   const [activeTab, setActiveTab] = useState<string>(initialRole === 'admin' ? 'admin-overview' : 'dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  React.useEffect(() => {
+    if (initialRole) {
+      setRole(initialRole);
+      setActiveTab(initialRole === 'admin' ? 'admin-overview' : 'dashboard');
+    }
+  }, [initialRole]);
 
   React.useEffect(() => {
     if (userAvatar) {

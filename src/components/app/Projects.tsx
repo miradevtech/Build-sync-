@@ -1,44 +1,21 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Calendar, Clock, ChevronRight, FileText, MessageSquare, ArrowLeft, Plus, Edit3, Trash2, X, Save } from 'lucide-react';
+import { MapPin, Calendar, Clock, ChevronRight, FileText, MessageSquare, ArrowLeft, Plus, Edit3, Trash2, X, Save, FolderOpen } from 'lucide-react';
 
-const INITIAL_CLIENT_PROJECTS = [
-  {
-    id: 1,
-    name: 'Modern Lakeside Residence',
-    type: 'Custom Home Build',
-    location: 'Austin, TX',
-    status: 'In Progress',
-    progress: 68,
-    startDate: 'March 15, 2026',
-    endDate: 'November 30, 2026',
-    assignedPro: 'Marcus Vance (Lead Architect)',
-    updates: [
-      { id: 101, title: 'Framing & Structural Inspection', date: 'Sept 22, 2026', status: 'Completed', notes: 'Passed city municipal engineering review with zero flags.' },
-      { id: 102, title: 'HVAC & Electrical Rough-in', date: 'Sept 26, 2026', status: 'In Progress', notes: 'Ductwork routing underway on upper level suites.' }
-    ]
-  },
-  {
-    id: 2,
-    name: 'Downtown Commercial Loft Renovation',
-    type: 'Interior Overhaul',
-    location: 'Austin, TX',
-    status: 'Planning',
-    progress: 25,
-    startDate: 'October 10, 2026',
-    endDate: 'February 15, 2027',
-    assignedPro: 'Elena Rostova (Project Manager)',
-    updates: [
-      { id: 201, title: 'Architectural Blueprint Sign-off', date: 'Sept 18, 2026', status: 'Completed', notes: 'Client approved floorplan variations.' }
-    ]
-  }
-];
+const INITIAL_CLIENT_PROJECTS: any[] = [];
 
 export default function Projects({ onNavigate }: { onNavigate?: (view: string) => void }) {
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [editingProject, setEditingProject] = useState<any | null>(null);
-  const [projects, setProjects] = useState<any[]>(INITIAL_CLIENT_PROJECTS);
+  const [projects, setProjects] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('buildsync_client_projects');
+      return saved ? JSON.parse(saved) : INITIAL_CLIENT_PROJECTS;
+    } catch {
+      return INITIAL_CLIENT_PROJECTS;
+    }
+  });
 
   const handleSaveProject = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +34,9 @@ export default function Projects({ onNavigate }: { onNavigate?: (view: string) =
           progress: 0,
           updates: []
         };
-        setProjects([newProj, ...projects]);
+        const updated = [newProj, ...projects];
+        setProjects(updated);
+        try { localStorage.setItem('buildsync_client_projects', JSON.stringify(updated)); } catch {}
       }
       setEditingProject(null);
       setIsCreating(false);
@@ -66,13 +45,13 @@ export default function Projects({ onNavigate }: { onNavigate?: (view: string) =
 
   const handleDeleteProject = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    if (window.confirm('Are you sure you want to delete this project?')) {
-      setProjects(prev => prev.filter(p => p.id !== id));
-      if (selectedProject && selectedProject.id === id) {
-        setSelectedProject(null);
-      }
-      setEditingProject(null);
+    const updated = projects.filter(p => p.id !== id);
+    setProjects(updated);
+    try { localStorage.setItem('buildsync_client_projects', JSON.stringify(updated)); } catch {}
+    if (selectedProject && selectedProject.id === id) {
+      setSelectedProject(null);
     }
+    setEditingProject(null);
   };
 
   if (selectedProject) {
@@ -318,56 +297,82 @@ export default function Projects({ onNavigate }: { onNavigate?: (view: string) =
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {projects.map((project) => (
-          <motion.div
-            key={project.id}
-            onClick={() => setSelectedProject(project)}
-            whileHover={{ y: -4 }}
-            className="bg-white rounded-2xl border border-[#A7F3D0] shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md group relative"
-          >
-            <button 
-              onClick={(e) => { e.stopPropagation(); setEditingProject(project); }} 
-              className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur border border-[#A7F3D0] text-[#666] hover:text-[#06110D] hover:bg-[#F0EFED] rounded-lg transition-colors opacity-0 group-hover:opacity-100 z-10"
-              title="Edit Project"
+      {projects.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-[#A7F3D0] p-10 sm:p-14 text-center shadow-sm max-w-xl mx-auto my-6">
+          <div className="w-16 h-16 rounded-2xl bg-[#10B981]/10 text-[#10B981] flex items-center justify-center mx-auto mb-4 shadow-sm">
+            <FolderOpen size={28} />
+          </div>
+          <h3 className="text-xl font-bold text-[#06110D] mb-2">No Active Projects Yet</h3>
+          <p className="text-sm text-[#666] leading-relaxed mb-6">
+            You don't have any ongoing projects yet. When you kick off a project with BuildSync, all milestone tracking, city permits, and structural engineering updates will show up here.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={() => { setEditingProject({ status: 'Planning', assignedPro: 'BuildSync Design Team' }); setIsCreating(true); }}
+              className="w-full sm:w-auto bg-[#10B981] hover:bg-[#059669] text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
             >
-              <Edit3 size={16} />
+              <Plus size={16} /> Create Personal Project
             </button>
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4 pr-8">
-                <div>
-                  <h2 className="text-xl font-semibold text-[#06110D] group-hover:text-[#10B981] transition-colors">{project.name}</h2>
-                  <p className="text-sm text-[#666] mt-1">{project.type}</p>
+            <button
+              onClick={() => onNavigate && onNavigate('consultations')}
+              className="w-full sm:w-auto border border-[#A7F3D0] hover:bg-[#F0EFED] text-[#06110D] px-5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer"
+            >
+              Book Discovery Session
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {projects.map((project) => (
+            <motion.div
+              key={project.id}
+              onClick={() => setSelectedProject(project)}
+              whileHover={{ y: -4 }}
+              className="bg-white rounded-2xl border border-[#A7F3D0] shadow-sm overflow-hidden cursor-pointer transition-all hover:shadow-md group relative"
+            >
+              <button 
+                onClick={(e) => { e.stopPropagation(); setEditingProject(project); }} 
+                className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur border border-[#A7F3D0] text-[#666] hover:text-[#06110D] hover:bg-[#F0EFED] rounded-lg transition-colors opacity-0 group-hover:opacity-100 z-10"
+                title="Edit Project"
+              >
+                <Edit3 size={16} />
+              </button>
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4 pr-8">
+                  <div>
+                    <h2 className="text-xl font-semibold text-[#06110D] group-hover:text-[#10B981] transition-colors">{project.name}</h2>
+                    <p className="text-sm text-[#666] mt-1">{project.type}</p>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-medium border whitespace-nowrap ${
+                    project.status === 'In Progress' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-amber-50 text-amber-700 border-amber-100'
+                  }`}>
+                    {project.status}
+                  </span>
                 </div>
-                <span className={`px-2.5 py-1 rounded-md text-xs font-medium border whitespace-nowrap ${
-                  project.status === 'In Progress' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-amber-50 text-amber-700 border-amber-100'
-                }`}>
-                  {project.status}
-                </span>
-              </div>
 
-              <div className="space-y-2 mb-6 text-sm text-[#4A4A4A]">
-                <p className="flex items-center gap-2"><MapPin size={16} className="text-[#A0A0A0]" /> {project.location}</p>
-                <p className="flex items-center gap-2"><Calendar size={16} className="text-[#A0A0A0]" /> {project.startDate} — {project.endDate}</p>
-              </div>
+                <div className="space-y-2 mb-6 text-sm text-[#4A4A4A]">
+                  <p className="flex items-center gap-2"><MapPin size={16} className="text-[#A0A0A0]" /> {project.location}</p>
+                  <p className="flex items-center gap-2"><Calendar size={16} className="text-[#A0A0A0]" /> {project.startDate} — {project.endDate}</p>
+                </div>
 
-              <div className="mt-4">
-                <div className="flex justify-between text-sm mb-1.5">
-                  <span className="font-medium text-[#06110D]">Progress</span>
-                  <span className="text-[#666]">{project.progress}%</span>
-                </div>
-                <div className="w-full bg-[#F0EFED] rounded-full h-1.5 overflow-hidden">
-                  <div className="bg-[#10B981] h-1.5 rounded-full transition-all duration-1000" style={{ width: `${project.progress}%` }} />
+                <div className="mt-4">
+                  <div className="flex justify-between text-sm mb-1.5">
+                    <span className="font-medium text-[#06110D]">Progress</span>
+                    <span className="text-[#666]">{project.progress}%</span>
+                  </div>
+                  <div className="w-full bg-[#F0EFED] rounded-full h-1.5 overflow-hidden">
+                    <div className="bg-[#10B981] h-1.5 rounded-full transition-all duration-1000" style={{ width: `${project.progress}%` }} />
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="bg-[#FFFFFF] px-6 py-3 border-t border-[#A7F3D0] flex justify-between items-center">
-              <span className="text-sm text-[#666]">Click to view details</span>
-              <ChevronRight size={18} className="text-[#A0A0A0] group-hover:text-[#10B981] transition-colors" />
-            </div>
-          </motion.div>
-        ))}
-      </div>
+              <div className="bg-[#FFFFFF] px-6 py-3 border-t border-[#A7F3D0] flex justify-between items-center">
+                <span className="text-sm text-[#666]">Click to view details</span>
+                <ChevronRight size={18} className="text-[#A0A0A0] group-hover:text-[#10B981] transition-colors" />
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

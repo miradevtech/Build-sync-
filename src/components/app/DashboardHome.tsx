@@ -93,21 +93,21 @@ export default function DashboardHome({ onNavigate, userName }: DashboardHomePro
             <div className="px-6 py-5 border-b border-[#A7F3D0] bg-[#FAFAFA]">
               <h2 className="text-base font-semibold text-[#06110D]">Upcoming Tasks</h2>
             </div>
-            <div className="p-0">
-              <div onClick={() => handleNavigation('documents')} className="p-5 border-b border-[#F0EFED] hover:bg-[#FFFFFF] transition-colors cursor-pointer group flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-[#06110D] group-hover:text-[#10B981] transition-colors">Review HVAC Estimates</p>
-                  <p className="text-xs text-[#666] mt-1 flex items-center gap-1.5"><Clock size={12}/> Due in 2 days</p>
-                </div>
-                <ArrowRight size={16} className="text-[#A0A0A0] group-hover:text-[#10B981] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-[#10B981]/10 text-[#10B981] flex items-center justify-center mx-auto mb-3">
+                <CheckCircle size={22} />
               </div>
-              <div onClick={() => handleNavigation('documents')} className="p-5 hover:bg-[#FFFFFF] transition-colors cursor-pointer group flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-[#06110D] group-hover:text-[#10B981] transition-colors">Sign Foundation Permit</p>
-                  <p className="text-xs font-medium text-rose-500 mt-1 flex items-center gap-1.5"><Clock size={12}/> Overdue by 1 day</p>
-                </div>
-                <ArrowRight size={16} className="text-[#A0A0A0] group-hover:text-[#10B981] opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
-              </div>
+              <p className="text-sm font-semibold text-[#06110D]">All Caught Up!</p>
+              <p className="text-xs text-[#666] mt-1 max-w-[200px] mx-auto leading-relaxed">
+                You have no pending approvals, signatures, or permit tasks at this time.
+              </p>
+              <button
+                onClick={() => handleNavigation('consultations')}
+                className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#10B981] hover:text-[#059669] transition-colors"
+              >
+                <span>Book a Consultation</span>
+                <ArrowRight size={13} />
+              </button>
             </div>
           </div>
           

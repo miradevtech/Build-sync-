@@ -30,23 +30,13 @@ export default function App() {
 
   React.useEffect(() => {
     // Firebase Auth State Listener
-    const unsubscribeFb = onAuthStateChanged(fbAuth, async (fbUser) => {
+    const unsubscribeFb = onAuthStateChanged(fbAuth, (fbUser) => {
       if (fbUser) {
         const email = fbUser.email || '';
-        let finalName = fbUser.displayName || (email ? email.split('@')[0] : 'Client');
+        const cachedName = localStorage.getItem('buildsync_user_name');
+        let finalName = cachedName || fbUser.displayName || (email ? email.split('@')[0] : 'Client');
         let finalRole: UserRole = 'client';
         let finalAvatar: string | null = fbUser.photoURL || null;
-
-        try {
-          const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            if (data.fullName) finalName = data.fullName;
-            if (data.role) finalRole = data.role as UserRole;
-          }
-        } catch (e) {
-          console.warn('Firebase user doc read notice:', e);
-        }
 
         setUserEmail(email);
         setUserName(finalName);
@@ -55,7 +45,24 @@ export default function App() {
         if (email) localStorage.setItem('buildsync_user_email', email);
         localStorage.setItem('buildsync_user_name', finalName);
 
+        // If user was on the login/signup screen, immediately transition to dashboard!
+        setCurrentView((prev) => (prev === 'auth' ? 'app' : prev));
 
+        // Non-blocking background fetch of Firestore user document
+        getDoc(doc(db, 'users', fbUser.uid)).then((userDoc) => {
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            if (data.fullName) {
+              setUserName(data.fullName);
+              localStorage.setItem('buildsync_user_name', data.fullName);
+            }
+            if (data.role) {
+              setUserRole(data.role as UserRole);
+            }
+          }
+        }).catch((e) => {
+          console.warn('Firebase user doc read notice:', e);
+        });
       } else {
         setUserEmail('');
         setUserName('');
@@ -109,6 +116,12 @@ export default function App() {
   };
 
   const handleOpenAuth = () => {
+    // If the user already has an active session, open the dashboard directly
+    if (fbAuth.currentUser || userEmail) {
+      sessionStorage.setItem('buildsync_active_portal', 'true');
+      setCurrentView('app');
+      return;
+    }
     setUserRole('client');
     setCurrentView('auth');
   };
@@ -202,6 +215,8 @@ export default function App() {
       <Navbar 
         onOpenModal={handleOpenModal} 
         onOpenAuth={handleOpenAuth} 
+        isLoggedIn={!!userEmail}
+        userName={userName}
       />
       
       <main className="relative z-10">

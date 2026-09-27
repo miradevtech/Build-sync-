@@ -1,32 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { FileText, Download, Eye, Folder, Search, Filter, X, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-const INITIAL_DOCS = [
-  {
-    id: 1,
-    name: 'Architectural_Master_Plan_v3.pdf',
-    type: 'Building Plans',
-    date: 'Sept 20, 2026',
-    size: '14.2 MB',
-    url: '#'
-  },
-  {
-    id: 2,
-    name: 'General_Contract_Agreement_Signed.pdf',
-    type: 'Contracts',
-    date: 'Sept 15, 2026',
-    size: '3.8 MB',
-    url: '#'
-  },
-  {
-    id: 3,
-    name: 'City_Building_Permit_Approved.pdf',
-    type: 'Permits',
-    date: 'Sept 12, 2026',
-    size: '1.9 MB',
-    url: '#'
-  }
-];
+const INITIAL_DOCS: any[] = [];
 
 export default function Documents() {
   const [activeCategory, setActiveCategory] = useState('All');
@@ -38,7 +13,14 @@ export default function Documents() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadName, setUploadName] = useState('');
   const [uploadType, setUploadType] = useState('Other');
-  const [documents, setDocuments] = useState<any[]>(INITIAL_DOCS);
+  const [documents, setDocuments] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('buildsync_client_docs');
+      return saved ? JSON.parse(saved) : INITIAL_DOCS;
+    } catch {
+      return INITIAL_DOCS;
+    }
+  });
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,7 +43,11 @@ export default function Documents() {
         url: URL.createObjectURL(selectedFile),
         isImage: selectedFile.type.startsWith('image/')
       };
-      setDocuments(prev => [newDoc, ...prev]);
+      setDocuments(prev => {
+        const next = [newDoc, ...prev];
+        try { localStorage.setItem('buildsync_client_docs', JSON.stringify(next)); } catch {}
+        return next;
+      });
       setUploadModalOpen(false);
       setSelectedFile(null);
       setUploadName('');
@@ -283,16 +269,18 @@ export default function Documents() {
                         <Download size={14} /> Download
                       </a>
                     ) : (
-                      <button onClick={(e) => { e.stopPropagation(); alert('File not found locally. This is a placeholder.'); }} className="flex-1 sm:flex-none px-3 py-1.5 text-xs font-semibold text-white bg-[#10B981] border border-transparent hover:bg-[#2D2D2D] rounded-lg transition-colors flex items-center justify-center gap-1.5" title="Download">
-                        <Download size={14} /> Download
-                      </button>
+                      <span className="text-xs text-[#999] px-2 py-1">Uploaded</span>
                     )}
                   </div>
                 </div>
               ))}
               {filteredDocs.length === 0 && (
                 <div className="p-12 text-center text-[#666] text-sm">
-                  No documents found in this category.
+                  <FileText size={32} className="mx-auto mb-2 text-[#A7F3D0]" />
+                  <p className="font-semibold text-[#06110D]">No documents on file yet</p>
+                  <p className="text-xs text-[#777] mt-1 max-w-sm mx-auto">
+                    Click "Upload" above to store architectural drawings, agreements, or permits securely.
+                  </p>
                 </div>
               )}
             </div>

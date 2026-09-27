@@ -119,34 +119,32 @@ export default function AuthView({ onLogin, onBack }: AuthViewProps) {
     try {
       if (isSignUp) {
         const cred = await createUserWithEmailAndPassword(fbAuth, targetEmail, password);
-        try {
-          await setDoc(doc(db, 'users', cred.user.uid), {
-            id: cred.user.uid,
-            fullName: targetName,
-            email: targetEmail,
-            role: 'client',
-            createdAt: new Date().toISOString()
-          }, { merge: true });
-        } catch (profileErr) {
+        
+        // Save profile in Firestore in the background without blocking the UI
+        setDoc(doc(db, 'users', cred.user.uid), {
+          id: cred.user.uid,
+          fullName: targetName,
+          email: targetEmail,
+          role: 'client',
+          createdAt: new Date().toISOString()
+        }, { merge: true }).catch((profileErr) => {
           console.warn('Firestore profile write notice:', profileErr);
-        }
+        });
 
         localStorage.setItem('buildsync_user_name', targetName);
         localStorage.setItem('buildsync_user_email', targetEmail);
         sessionStorage.setItem('buildsync_active_portal', 'true');
-        setSuccessMsg('Account created successfully! Taking you to your portal...');
-        setTimeout(() => {
-          onLogin('client', targetName, targetEmail);
-        }, 400);
+        
+        // Instant direct transition to portal dashboard
+        onLogin('client', targetName, targetEmail);
       } else {
         await signInWithEmailAndPassword(fbAuth, targetEmail, password);
         localStorage.setItem('buildsync_user_name', targetName);
         localStorage.setItem('buildsync_user_email', targetEmail);
         sessionStorage.setItem('buildsync_active_portal', 'true');
-        setSuccessMsg('Signed in successfully! Loading portal...');
-        setTimeout(() => {
-          onLogin('client', targetName, targetEmail);
-        }, 400);
+        
+        // Instant direct transition to portal dashboard
+        onLogin('client', targetName, targetEmail);
       }
     } catch (err: any) {
       console.warn('Firebase email auth error:', err);
