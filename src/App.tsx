@@ -55,10 +55,7 @@ export default function App() {
         if (email) localStorage.setItem('buildsync_user_email', email);
         localStorage.setItem('buildsync_user_name', finalName);
 
-        // Only navigate directly to portal if the user specifically navigated into the portal in this session
-        if (sessionStorage.getItem('buildsync_active_portal') === 'true') {
-          setCurrentView('app');
-        }
+
       } else {
         setUserEmail('');
         setUserName('');

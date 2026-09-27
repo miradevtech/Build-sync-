@@ -3,8 +3,6 @@ import { Compass, ArrowLeft, Mail, Lock, ArrowRight, User, AlertCircle, CheckCir
 import { UserRole } from '../../types';
 import { 
   auth as fbAuth, 
-  googleProvider, 
-  signInWithPopup, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   db, 
@@ -24,7 +22,6 @@ export default function AuthView({ onLogin, onBack }: AuthViewProps) {
   const [fullName, setFullName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [showDemoAccess, setShowDemoAccess] = useState(false);
@@ -38,11 +35,11 @@ export default function AuthView({ onLogin, onBack }: AuthViewProps) {
 
     if (code === 'auth/operation-not-allowed' || raw.includes('operation-not-allowed')) {
       setShowDemoAccess(true);
-      return 'Email/Password sign-in is not yet enabled in your Firebase Console (Authentication → Sign-in method → Email/Password). Use "Continue with Google" above, or tap Demo Mode below to enter immediately.';
+      return 'Email/Password sign-in is not yet enabled in your Firebase Console (Authentication → Sign-in method → Email/Password). Tap Demo Mode below to enter immediately.';
     }
 
     if (code === 'auth/email-already-in-use' || raw.includes('email-already-in-use')) {
-      return 'An account with this email already exists. Please switch to "Sign In" or use "Continue with Google".';
+      return 'An account with this email already exists. Please switch to "Sign In" below.';
     }
 
     if (
@@ -82,68 +79,6 @@ export default function AuthView({ onLogin, onBack }: AuthViewProps) {
     return isSignUpMode
       ? 'Unable to create account. Please check your details and try again.'
       : 'Invalid email or password. Please check your credentials and try again.';
-  };
-
-  const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
-    setErrorMsg('');
-    setShowDemoAccess(false);
-    try {
-      // Force Google account chooser so the user can pick from different Google accounts
-      googleProvider.setCustomParameters({
-        prompt: 'select_account'
-      });
-      const result = await signInWithPopup(fbAuth, googleProvider);
-      const user = result.user;
-      const userName = user.displayName || user.email?.split('@')[0] || 'Client User';
-      const userEmail = user.email || '';
-      
-      try {
-        await setDoc(doc(db, 'users', user.uid), {
-          id: user.uid,
-          fullName: userName,
-          email: userEmail,
-          role: 'client',
-          createdAt: new Date().toISOString()
-        }, { merge: true });
-      } catch (firestoreErr) {
-        console.warn('Firestore profile write notice:', firestoreErr);
-      }
-
-      localStorage.setItem('buildsync_user_name', userName);
-      if (userEmail) localStorage.setItem('buildsync_user_email', userEmail);
-      if (user.photoURL) localStorage.setItem('buildsync_user_avatar', user.photoURL);
-      sessionStorage.setItem('buildsync_active_portal', 'true');
-
-      setSuccessMsg('Signed in with Google successfully! Entering portal...');
-      setTimeout(() => {
-        onLogin('client', userName, userEmail);
-      }, 300);
-    } catch (err: any) {
-      const code = (err?.code || '').toLowerCase();
-      const msg = (err?.message || String(err)).toLowerCase();
-      const isUserClosed = 
-        code === 'auth/popup-closed-by-user' || 
-        code === 'auth/cancelled-popup-request' ||
-        msg.includes('closed-by-user') || 
-        msg.includes('popup-closed') ||
-        msg.includes('cancelled');
-
-      if (isUserClosed) {
-        // User closed or dismissed the popup — normal user behavior, not an error
-        return;
-      }
-
-      if (code === 'auth/popup-blocked' || msg.includes('popup-blocked')) {
-        setErrorMsg('The sign-in popup was blocked by your browser. Please allow popups for this site and try again.');
-        return;
-      }
-
-      console.warn('Google Sign-in notice:', err);
-      setErrorMsg('Google Sign-In: ' + (err.message || 'Unable to connect to Google account.'));
-    } finally {
-      setGoogleLoading(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -225,12 +160,14 @@ export default function AuthView({ onLogin, onBack }: AuthViewProps) {
     const resolvedEmail = emailOrUsername.includes('@') ? emailOrUsername.trim() : 'client@buildsync.com';
     localStorage.setItem('buildsync_user_name', resolvedName);
     localStorage.setItem('buildsync_user_email', resolvedEmail);
+    sessionStorage.setItem('buildsync_active_portal', 'true');
     onLogin('client', resolvedName, resolvedEmail);
   };
 
   return (
     <div className="min-h-screen bg-[#050E0A] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden text-[#E5E4E0]">
-      <div className="absolute inset-0 z-0">
+      {/* Background Ambience */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute inset-0 bg-[#06110D]/90 z-10" />
         <div className="absolute top-1/4 -left-20 w-[400px] h-[400px] bg-[#10B981]/10 rounded-full blur-3xl pointer-events-none z-10" />
         <div className="absolute bottom-1/4 -right-20 w-[300px] h-[300px] bg-[#059669]/10 rounded-full blur-3xl pointer-events-none z-10" />
@@ -292,61 +229,6 @@ export default function AuthView({ onLogin, onBack }: AuthViewProps) {
             </div>
           )}
 
-          {fbAuth.currentUser && (
-            <div className="mb-5 p-3.5 rounded-xl bg-white/[0.04] border border-[#10B981]/30 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] text-white/50 uppercase tracking-wider font-semibold">Active Session</p>
-                <p className="text-xs text-emerald-400 font-medium truncate">{fbAuth.currentUser.email || fbAuth.currentUser.displayName}</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => onLogin('client', fbAuth.currentUser?.displayName || '', fbAuth.currentUser?.email || '')}
-                  className="text-xs bg-[#10B981] hover:bg-[#059669] text-white font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-sm"
-                >
-                  Enter Portal
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try { await fbAuth.signOut(); } catch {}
-                    localStorage.removeItem('buildsync_user_name');
-                    localStorage.removeItem('buildsync_user_email');
-                    localStorage.removeItem('buildsync_user_avatar');
-                    sessionStorage.removeItem('buildsync_active_portal');
-                    setErrorMsg('');
-                    setSuccessMsg('Signed out. Pick another Google account or use email below.');
-                  }}
-                  className="text-xs text-white/60 hover:text-white underline cursor-pointer px-1 py-1"
-                >
-                  Switch
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* One-Click Google Sign-In with Account Selection */}
-          <button
-            type="button"
-            disabled={googleLoading || loading}
-            onClick={handleGoogleSignIn}
-            className="w-full mb-2 flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-white/15 bg-white/[0.07] hover:bg-white/[0.12] text-white text-sm font-semibold transition-all cursor-pointer shadow-sm hover:scale-[1.01] disabled:opacity-50"
-          >
-            <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
-              <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z" />
-              <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z" />
-              <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9z" />
-              <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.2L1.9 16c1.8 3.7 5.6 7 10.1 7z" />
-            </svg>
-            <span>{googleLoading ? 'Connecting to Google...' : (isSignUp ? 'Sign up with Google' : 'Continue with Google')}</span>
-          </button>
-          <p className="text-[11px] text-white/40 text-center mb-4">Choose from any Google account</p>
-
-          <div className="flex items-center my-4">
-            <div className="flex-1 border-t border-white/10" />
-            <span className="px-3 text-[11px] uppercase tracking-wider text-white/40 font-medium">or with email</span>
-            <div className="flex-1 border-t border-white/10" />
-          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (

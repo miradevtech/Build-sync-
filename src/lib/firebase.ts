@@ -1,8 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut as fbSignOut,
@@ -27,11 +25,6 @@ export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId)
 
 // Initialize Firebase Auth
 export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
-// Force Google to always show account picker dialog so users can select or switch accounts
-googleProvider.setCustomParameters({
-  prompt: 'select_account'
-});
 
 export enum OperationType {
   CREATE = 'create',
@@ -95,7 +88,6 @@ export async function testConnection() {
 testConnection();
 
 export {
-  signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   fbSignOut,

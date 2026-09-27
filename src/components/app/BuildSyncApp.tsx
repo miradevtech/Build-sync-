@@ -553,17 +553,17 @@ export default function BuildSyncApp({
               </div>
             </div>
 
-            {/* Quick Switch / Sign Out */}
+            {/* Sign Out Button */}
             <button
               onClick={async () => {
                 try { await fbSignOut(fbAuth); } catch {}
                 onLogout();
               }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border border-[#A7F3D0] bg-white/80 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 text-[#555] text-xs font-semibold shadow-sm transition-all cursor-pointer"
-              title="Switch account or sign out"
+              title="Sign out and return to website"
             >
               <LogOut size={14} />
-              <span className="hidden md:inline">Switch Account</span>
+              <span className="hidden md:inline">Sign Out</span>
             </button>
           </div>
         </header>
