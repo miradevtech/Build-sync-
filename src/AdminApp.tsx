@@ -18,7 +18,7 @@ import AdminFinancials from './components/app/admin/AdminFinancials';
 import AdminActivityLogs from './components/app/admin/AdminActivityLogs';
 import AdminSettings from './components/app/admin/AdminSettings';
 
-import { supabase } from './lib/supabase';
+import { fbSignOut, auth as fbAuth } from './lib/firebase';
 
 // Types & Initial Data
 import { 
@@ -417,7 +417,7 @@ export default function AdminApp() {
               <button
                 onClick={async () => {
                   try {
-                    if (supabase) await supabase.auth.signOut();
+                    await fbSignOut(fbAuth);
                   } catch (e) {
                     // ignore
                   }

@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'rolandkaiser02044@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId) && isOwner(userId) &&
+        incoming().id == userId &&
+        incoming().keys().hasAll(['id', 'fullName', 'email', 'role']) &&
+        incoming().fullName is string && incoming().fullName.size() <= 100 &&
+        incoming().email is string && incoming().email.size() <= 150;
+      allow update: if isValidId(userId) && isOwner(userId) &&
+        incoming().id == existing().id &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'role']);
+      allow delete: if isAdmin();
+    }
+
+    // Projects collection
+    match /projects/{projectId} {
+      allow get: if isValidId(projectId) && isSignedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        resource.data.clientEmail == request.auth.token.email ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        resource.data.clientEmail == request.auth.token.email ||
+        isAdmin()
+      );
+      allow create: if isValidId(projectId) && isSignedIn() &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().keys().hasAll(['id', 'title', 'client', 'ownerId']) &&
+        incoming().title is string && incoming().title.size() <= 120;
+      allow update: if isValidId(projectId) && isSignedIn() && (
+        existing().ownerId == request.auth.uid || isAdmin()
+      );
+      allow delete: if isValidId(projectId) && isSignedIn() && (
+        existing().ownerId == request.auth.uid || isAdmin()
+      );
+    }
+
+    // Connection testing endpoint
+    match /test/{docId} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}

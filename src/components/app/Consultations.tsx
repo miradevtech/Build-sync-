@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Calendar as CalendarIcon, Clock, ArrowLeft, CheckCircle2, Video, MessageSquare, Trash2, Edit3, X, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../../lib/supabase';
 
 interface ConsultationsProps {
   onNavigate?: (view: string) => void;
@@ -36,30 +35,6 @@ export default function Consultations({ onNavigate, onAddConsultation, userName,
     const formattedDate = isNaN(dateObj.getTime()) 
       ? date 
       : dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-
-    // Send to Supabase
-    if (supabase) {
-      try {
-        const { error } = await supabase
-          .from('consultations')
-          .insert([
-            { 
-              client_name: userName || 'Client', // Dynamically passed down
-              client_email: userEmail || 'client@example.com',
-              phone: '+1 555-123-4567',
-              project_type: projectType,
-              preferred_date: formattedDate,
-              preferred_time: time,
-              notes: `Project Name: ${projectName} | Additional Notes: ${notes}`
-            }
-          ]);
-          
-        if (error) throw error;
-        console.log('Saved to Supabase successfully!');
-      } catch (err) {
-        console.warn('Error saving to Supabase:', err);
-      }
-    }
 
     // Add to local upcoming list for immediate client view feedback
     const newBooking = {

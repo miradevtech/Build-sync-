@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account profile document storing user details and roles",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Firebase Auth UID matching document ID"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "User's full name",
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address",
+          "maxLength": 150
+        },
+        "role": {
+          "type": "string",
+          "description": "User role in the system",
+          "enum": ["client", "admin", "contractor"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Account creation timestamp"
+        }
+      },
+      "required": ["id", "fullName", "email", "role"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Construction and build project document",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique project identifier"
+        },
+        "title": {
+          "type": "string",
+          "description": "Project title",
+          "maxLength": 120
+        },
+        "client": {
+          "type": "string",
+          "description": "Client name",
+          "maxLength": 100
+        },
+        "clientEmail": {
+          "type": "string",
+          "description": "Client contact email",
+          "maxLength": 150
+        },
+        "status": {
+          "type": "string",
+          "description": "Current project phase or status",
+          "maxLength": 50
+        },
+        "progress": {
+          "type": "number",
+          "description": "Percentage progress from 0 to 100"
+        },
+        "budget": {
+          "type": "string",
+          "description": "Formatted budget amount",
+          "maxLength": 50
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Owner or creator user UID",
+          "maxLength": 128
+        }
+      },
+      "required": ["id", "title", "client", "ownerId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles collection"
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Projects managed in BuildSync"
+    }
+  }
+}

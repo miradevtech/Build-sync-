@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase';
+import { fbSignOut, auth as fbAuth } from '../../lib/firebase';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -403,7 +403,7 @@ export default function BuildSyncApp({
           <button 
             onClick={async () => {
               try {
-                if(supabase) await supabase.auth.signOut();
+                await fbSignOut(fbAuth);
               } catch (e) {
                 // ignore
               }
@@ -552,6 +552,19 @@ export default function BuildSyncApp({
                 </p>
               </div>
             </div>
+
+            {/* Quick Switch / Sign Out */}
+            <button
+              onClick={async () => {
+                try { await fbSignOut(fbAuth); } catch {}
+                onLogout();
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl border border-[#A7F3D0] bg-white/80 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 text-[#555] text-xs font-semibold shadow-sm transition-all cursor-pointer"
+              title="Switch account or sign out"
+            >
+              <LogOut size={14} />
+              <span className="hidden md:inline">Switch Account</span>
+            </button>
           </div>
         </header>
 

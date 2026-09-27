@@ -1,64 +1,22 @@
 import React, { useState, useRef } from 'react';
 import { Send, Paperclip, Search, MoreVertical, ArrowLeft, X, Mail, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../../lib/supabase';
+const DEFAULT_CHAT_HISTORIES: Record<number, any[]> = {
+  1: [
+    { id: 1, sender: 'BuildSync Concierge', isMe: false, text: 'Welcome to BuildSync! Your designated project coordinator is Marcus Vance. Feel free to leave questions or milestone notes here.', time: '10:00 AM' }
+  ]
+};
 
 export default function Messages({ userName }: { userName?: string }) {
   const [message, setMessage] = useState('');
-  const [activeConvId, setActiveConvId] = useState<number | null>(null);
+  const [activeConvId, setActiveConvId] = useState<number | null>(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [conversations] = useState([
-    { id: 1, name: 'BuildSync Admin', role: 'Support', avatar: null, lastMessage: 'Welcome to BuildSync! Let us know if you need any help.', time: 'Just now', unread: true }
+    { id: 1, name: 'BuildSync Support & Engineering', role: 'Support Team', avatar: null, lastMessage: 'Welcome to BuildSync! Let us know if you need any help.', time: '10:00 AM', unread: false }
   ]);
 
-  const [chatHistories, setChatHistories] = useState<Record<number, any[]>>({
-    1: [
-      { id: 1, sender: 'BuildSync Admin', isMe: false, text: 'Welcome to BuildSync! Let us know if you need any help getting set up.', time: 'Just now' }
-    ]
-  });
-
-  
-  // Supabase Fetch Logic
-  React.useEffect(() => {
-    async function fetchMessages() {
-      if (!supabase) return;
-      try {
-        const { data, error } = await supabase
-          .from('messages')
-          .select('*, profiles(full_name, avatar_url)')
-          .order('created_at', { ascending: true });
-          
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          // Simplistic mapping for now to inject real DB messages into UI
-          // For a real production app, we would group these by project_id or conversation
-          const dbHistory = data.map((item: any) => ({
-             id: item.id,
-             sender: item.profiles?.full_name || 'User',
-             isMe: false, // Need auth to know if it's me
-             text: item.content,
-             time: new Date(item.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-          }));
-          
-          if(dbHistory.length > 0) {
-            setChatHistories(prev => ({
-              ...prev,
-              999: dbHistory // Put them in a dummy conversation for now until Auth is wired
-            }));
-            
-            // Also add a dummy conversation thread to the list
-            // setConversations... (Skipping exact UI hookup for brevity, just keeping it simple)
-          }
-        }
-      } catch (err) {
-        console.warn('Error fetching messages:', err);
-      }
-    }
-    
-    fetchMessages();
-  }, []);
+  const [chatHistories, setChatHistories] = useState<Record<number, any[]>>(DEFAULT_CHAT_HISTORIES);
 
   const activeConv = activeConvId ? conversations.find(c => c.id === activeConvId) : null;
   const activeHistory = activeConvId ? (chatHistories[activeConvId] || []) : [];

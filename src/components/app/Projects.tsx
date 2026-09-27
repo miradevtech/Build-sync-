@@ -1,52 +1,44 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../../lib/supabase';
 import { MapPin, Calendar, Clock, ChevronRight, FileText, MessageSquare, ArrowLeft, Plus, Edit3, Trash2, X, Save } from 'lucide-react';
+
+const INITIAL_CLIENT_PROJECTS = [
+  {
+    id: 1,
+    name: 'Modern Lakeside Residence',
+    type: 'Custom Home Build',
+    location: 'Austin, TX',
+    status: 'In Progress',
+    progress: 68,
+    startDate: 'March 15, 2026',
+    endDate: 'November 30, 2026',
+    assignedPro: 'Marcus Vance (Lead Architect)',
+    updates: [
+      { id: 101, title: 'Framing & Structural Inspection', date: 'Sept 22, 2026', status: 'Completed', notes: 'Passed city municipal engineering review with zero flags.' },
+      { id: 102, title: 'HVAC & Electrical Rough-in', date: 'Sept 26, 2026', status: 'In Progress', notes: 'Ductwork routing underway on upper level suites.' }
+    ]
+  },
+  {
+    id: 2,
+    name: 'Downtown Commercial Loft Renovation',
+    type: 'Interior Overhaul',
+    location: 'Austin, TX',
+    status: 'Planning',
+    progress: 25,
+    startDate: 'October 10, 2026',
+    endDate: 'February 15, 2027',
+    assignedPro: 'Elena Rostova (Project Manager)',
+    updates: [
+      { id: 201, title: 'Architectural Blueprint Sign-off', date: 'Sept 18, 2026', status: 'Completed', notes: 'Client approved floorplan variations.' }
+    ]
+  }
+];
 
 export default function Projects({ onNavigate }: { onNavigate?: (view: string) => void }) {
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [editingProject, setEditingProject] = useState<any | null>(null);
-
-  
-  // Supabase Fetch Logic
-  React.useEffect(() => {
-    async function fetchProjects() {
-      if (!supabase) return;
-      try {
-        const { data, error } = await supabase
-          .from('projects')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          const mappedData = data.map((item: any) => ({
-            id: item.id,
-            name: item.name,
-            type: 'General', // Fallback since type isn't in DB schema yet
-            location: item.location || 'TBD',
-            status: item.status || 'Planning',
-            progress: 0, // Placeholder
-            startDate: item.start_date || 'TBD',
-            endDate: item.end_date || 'TBD',
-            assignedPro: 'Unassigned',
-            updates: []
-          }));
-          
-          // Only replace if we actually have data, otherwise keep mock data for UI visual appeal for now
-          setProjects(mappedData);
-        }
-      } catch (err) {
-        console.warn('Error fetching projects:', err);
-      }
-    }
-    
-    fetchProjects();
-  }, []);
-
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>(INITIAL_CLIENT_PROJECTS);
 
   const handleSaveProject = (e: React.FormEvent) => {
     e.preventDefault();

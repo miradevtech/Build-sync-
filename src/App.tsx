@@ -10,7 +10,7 @@ import Footer from './components/Footer';
 import InfoDrawer from './components/InfoDrawer';
 import AuthView from './components/app/AuthView';
 import BuildSyncApp from './components/app/BuildSyncApp';
-import { supabase } from './lib/supabase';
+import { auth as fbAuth, onAuthStateChanged, fbSignOut, db, doc, getDoc, updateDoc } from './lib/firebase';
 import { ModalKey, UserRole } from './types';
 
 export default function App() {
@@ -26,100 +26,59 @@ export default function App() {
     return localStorage.getItem('buildsync_user_avatar') || null;
   });
   const [activeModal, setActiveModal] = useState<ModalKey>(null);
-  const [isAuthenticating, setIsAuthenticating] = useState<boolean>(() => {
-    try {
-      const rawKeys = Object.keys(localStorage);
-      const hasSupabaseToken = rawKeys.some(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
-      return hasSupabaseToken && !!localStorage.getItem('buildsync_user_email');
-    } catch {
-      return false;
-    }
-  });
+  const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
 
   React.useEffect(() => {
-    let supabaseSub: { unsubscribe: () => void } | null = null;
+    // Firebase Auth State Listener
+    const unsubscribeFb = onAuthStateChanged(fbAuth, async (fbUser) => {
+      if (fbUser) {
+        const email = fbUser.email || '';
+        let finalName = fbUser.displayName || (email ? email.split('@')[0] : 'Client');
+        let finalRole: UserRole = 'client';
+        let finalAvatar: string | null = fbUser.photoURL || null;
 
-    const applySession = async (session: any) => {
-      const email = session?.user?.email || '';
-      const metaName = session?.user?.user_metadata?.full_name || '';
-
-      setUserEmail(email);
-      if (email) localStorage.setItem('buildsync_user_email', email);
-
-      let finalRole: UserRole = 'client';
-      let finalName = metaName || (email ? email.split('@')[0] : 'Client');
-      let finalAvatar: string | null = null;
-
-      if (supabase && session?.user?.id) {
         try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role, full_name, avatar_url')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profile) {
-            if (profile.role) finalRole = profile.role as UserRole;
-            if (profile.full_name) finalName = profile.full_name;
-            if (profile.avatar_url) finalAvatar = profile.avatar_url;
-          } else {
-            await supabase.from('profiles').upsert({
-              id: session.user.id,
-              full_name: finalName,
-              role: finalRole,
-              avatar_url: finalAvatar
-            }, { onConflict: 'id' });
+          const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            if (data.fullName) finalName = data.fullName;
+            if (data.role) finalRole = data.role as UserRole;
           }
-        } catch (dbErr) {
-          console.warn('Profile sync notice:', dbErr);
+        } catch (e) {
+          console.warn('Firebase user doc read notice:', e);
         }
+
+        setUserEmail(email);
+        setUserName(finalName);
+        setUserRole(finalRole);
+        if (finalAvatar) setUserAvatar(finalAvatar);
+        if (email) localStorage.setItem('buildsync_user_email', email);
+        localStorage.setItem('buildsync_user_name', finalName);
+
+        // Only navigate directly to portal if the user specifically navigated into the portal in this session
+        if (sessionStorage.getItem('buildsync_active_portal') === 'true') {
+          setCurrentView('app');
+        }
+      } else {
+        setUserEmail('');
+        setUserName('');
+        setUserAvatar(null);
+        localStorage.removeItem('buildsync_user_name');
+        localStorage.removeItem('buildsync_user_email');
+        localStorage.removeItem('buildsync_user_avatar');
+        sessionStorage.removeItem('buildsync_active_portal');
       }
-
-      setUserRole(finalRole);
-      setUserName(finalName);
-      localStorage.setItem('buildsync_user_name', finalName);
-      if (finalAvatar) {
-        setUserAvatar(finalAvatar);
-        localStorage.setItem('buildsync_user_avatar', finalAvatar);
-      }
-
-      setCurrentView('app');
       setIsAuthenticating(false);
-    };
-
-    if (supabase) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          applySession(session);
-        } else {
-          setIsAuthenticating(false);
-        }
-      }).catch(() => {
-        setIsAuthenticating(false);
-      });
-
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session) {
-          applySession(session);
-        } else if (_event === 'SIGNED_OUT') {
-          setIsAuthenticating(false);
-          setCurrentView('landing');
-        }
-      });
-      supabaseSub = subscription;
-    } else {
-      setIsAuthenticating(false);
-    }
+    });
 
     return () => {
-      if (supabaseSub) supabaseSub.unsubscribe();
+      unsubscribeFb();
     };
   }, []);
 
   const handleLogout = async () => {
-    if (supabase) {
-      try { await supabase.auth.signOut(); } catch {}
-    }
+    try { await fbSignOut(fbAuth); } catch {}
+    sessionStorage.removeItem('buildsync_active_portal');
     setUserEmail('');
     setUserName('');
     setUserAvatar(null);
@@ -133,14 +92,13 @@ export default function App() {
   const handleUpdateProfileName = async (newName: string) => {
     setUserName(newName);
     localStorage.setItem('buildsync_user_name', newName);
-    if (supabase) {
+    if (fbAuth.currentUser) {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          await supabase.from('profiles').update({ full_name: newName }).eq('id', session.user.id);
-        }
+        await updateDoc(doc(db, 'users', fbAuth.currentUser.uid), {
+          fullName: newName
+        });
       } catch (err) {
-        console.warn('Update profile error:', err);
+        console.warn('Update Firebase profile error:', err);
       }
     }
   };
@@ -154,12 +112,8 @@ export default function App() {
   };
 
   const handleOpenAuth = () => {
-    if (userEmail) {
-      setCurrentView('app');
-    } else {
-      setUserRole('client');
-      setCurrentView('auth');
-    }
+    setUserRole('client');
+    setCurrentView('auth');
   };
 
   const handleLogin = (role: UserRole = 'client', name?: string, email?: string) => {
@@ -172,6 +126,7 @@ export default function App() {
       setUserEmail(email);
       localStorage.setItem('buildsync_user_email', email);
     }
+    sessionStorage.setItem('buildsync_active_portal', 'true');
     setCurrentView('app');
   };
 

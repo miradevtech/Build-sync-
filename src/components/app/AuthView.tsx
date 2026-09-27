@@ -1,7 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Compass, ArrowLeft, Mail, Lock, ArrowRight, User, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { UserRole } from '../../types';
-import { supabase } from '../../lib/supabase';
+import { 
+  auth as fbAuth, 
+  googleProvider, 
+  signInWithPopup, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  db, 
+  doc, 
+  setDoc 
+} from '../../lib/firebase';
 
 interface AuthViewProps {
   initialRole?: UserRole;
@@ -15,68 +24,58 @@ export default function AuthView({ onLogin, onBack }: AuthViewProps) {
   const [fullName, setFullName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [showDemoAccess, setShowDemoAccess] = useState(false);
 
-  // Human-friendly error messages
-  const getFriendlyErrorMessage = (err: any, isSignUpMode: boolean): string => {
+  // Friendly error messages tailored strictly for Firebase Auth
+  const getFirebaseErrorMessage = (err: any, isSignUpMode: boolean): string => {
     if (!err) return 'Invalid email or password. Please check your credentials and try again.';
     
-    const raw = (err.message || err.error_description || String(err)).toLowerCase();
     const code = (err.code || '').toLowerCase();
+    const raw = (err.message || String(err)).toLowerCase();
 
-    if (
-      code.includes('email_provider_disabled') ||
-      raw.includes('email_provider_disabled') ||
-      raw.includes('email signups are disabled') ||
-      raw.includes('email logins are disabled')
-    ) {
-      return 'Email authentication is currently disabled in your Supabase project. Please go to Supabase Dashboard -> Authentication -> Providers -> Email and turn "Enable Email provider" ON.';
+    if (code === 'auth/operation-not-allowed' || raw.includes('operation-not-allowed')) {
+      setShowDemoAccess(true);
+      return 'Email/Password sign-in is not yet enabled in your Firebase Console (Authentication → Sign-in method → Email/Password). Use "Continue with Google" above, or tap Demo Mode below to enter immediately.';
     }
 
-    if (raw.includes('load failed') || raw.includes('failed to fetch') || raw.includes('network error')) {
-      return 'Unable to reach authentication service. Please ensure the Email provider is enabled in your Supabase project (Authentication -> Providers -> Email).';
-    }
-
-    if (raw.includes('email not confirmed') || raw.includes('confirm your email') || raw.includes('unconfirmed')) {
-      return 'Please verify your email address. Check your inbox for the confirmation link, or sign in if already verified.';
+    if (code === 'auth/email-already-in-use' || raw.includes('email-already-in-use')) {
+      return 'An account with this email already exists. Please switch to "Sign In" or use "Continue with Google".';
     }
 
     if (
-      code.includes('invalid-credential') ||
-      code.includes('user-not-found') ||
-      code.includes('wrong-password') ||
+      code === 'auth/wrong-password' || 
+      code === 'auth/invalid-credential' || 
+      code === 'auth/user-not-found' ||
       raw.includes('invalid-credential') ||
-      raw.includes('user-not-found') ||
       raw.includes('wrong-password') ||
-      raw.includes('invalid login credentials')
+      raw.includes('user-not-found')
     ) {
       return isSignUpMode
         ? 'Unable to create account with these credentials. Please check your details.'
         : 'Invalid email or password. If you do not have an account yet, click "Sign Up" below.';
     }
 
-    if (code.includes('invalid-email') || raw.includes('invalid-email') || raw.includes('valid email')) {
+    if (code === 'auth/invalid-email' || raw.includes('invalid-email')) {
       return 'Please enter a valid email address.';
     }
 
-    if (code.includes('email-already-in-use') || raw.includes('email-already-in-use') || raw.includes('already registered')) {
-      return 'An account with this email already exists. Please switch to "Sign In".';
-    }
-
-    if (code.includes('weak-password') || raw.includes('weak-password') || raw.includes('at least 6 characters')) {
+    if (code === 'auth/weak-password' || raw.includes('weak-password')) {
       return 'Password must be at least 6 characters long.';
     }
 
-    if (code.includes('missing-password') || raw.includes('missing-password')) {
-      return 'Please enter your password.';
+    if (code === 'auth/too-many-requests' || raw.includes('too-many-requests')) {
+      return 'Too many failed attempts. Please wait a few moments and try again.';
     }
 
-    if (code.includes('too-many-requests') || raw.includes('too-many-requests')) {
-      return 'Too many failed attempts. Please wait a moment and try again.';
+    if (code === 'auth/network-request-failed' || raw.includes('network-request-failed')) {
+      setShowDemoAccess(true);
+      return 'Network connection error reaching Firebase. Please check your internet connection or use Demo Mode.';
     }
 
-    if (err.message && typeof err.message === 'string' && err.message.length > 3) {
+    if (err.message && typeof err.message === 'string' && err.message.length > 5) {
       return err.message;
     }
 
@@ -85,11 +84,74 @@ export default function AuthView({ onLogin, onBack }: AuthViewProps) {
       : 'Invalid email or password. Please check your credentials and try again.';
   };
 
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    setErrorMsg('');
+    setShowDemoAccess(false);
+    try {
+      // Force Google account chooser so the user can pick from different Google accounts
+      googleProvider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      const result = await signInWithPopup(fbAuth, googleProvider);
+      const user = result.user;
+      const userName = user.displayName || user.email?.split('@')[0] || 'Client User';
+      const userEmail = user.email || '';
+      
+      try {
+        await setDoc(doc(db, 'users', user.uid), {
+          id: user.uid,
+          fullName: userName,
+          email: userEmail,
+          role: 'client',
+          createdAt: new Date().toISOString()
+        }, { merge: true });
+      } catch (firestoreErr) {
+        console.warn('Firestore profile write notice:', firestoreErr);
+      }
+
+      localStorage.setItem('buildsync_user_name', userName);
+      if (userEmail) localStorage.setItem('buildsync_user_email', userEmail);
+      if (user.photoURL) localStorage.setItem('buildsync_user_avatar', user.photoURL);
+      sessionStorage.setItem('buildsync_active_portal', 'true');
+
+      setSuccessMsg('Signed in with Google successfully! Entering portal...');
+      setTimeout(() => {
+        onLogin('client', userName, userEmail);
+      }, 300);
+    } catch (err: any) {
+      const code = (err?.code || '').toLowerCase();
+      const msg = (err?.message || String(err)).toLowerCase();
+      const isUserClosed = 
+        code === 'auth/popup-closed-by-user' || 
+        code === 'auth/cancelled-popup-request' ||
+        msg.includes('closed-by-user') || 
+        msg.includes('popup-closed') ||
+        msg.includes('cancelled');
+
+      if (isUserClosed) {
+        // User closed or dismissed the popup — normal user behavior, not an error
+        return;
+      }
+
+      if (code === 'auth/popup-blocked' || msg.includes('popup-blocked')) {
+        setErrorMsg('The sign-in popup was blocked by your browser. Please allow popups for this site and try again.');
+        return;
+      }
+
+      console.warn('Google Sign-in notice:', err);
+      setErrorMsg('Google Sign-In: ' + (err.message || 'Unable to connect to Google account.'));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg('');
     setSuccessMsg('');
+    setShowDemoAccess(false);
 
     const trimmedInput = emailOrUsername.trim();
     if (!trimmedInput) {
@@ -119,69 +181,51 @@ export default function AuthView({ onLogin, onBack }: AuthViewProps) {
       return;
     }
 
-    // Supabase Authentication
-    if (supabase) {
-      try {
-        if (isSignUp) {
-          const { data, error } = await supabase.auth.signUp({
+    try {
+      if (isSignUp) {
+        const cred = await createUserWithEmailAndPassword(fbAuth, targetEmail, password);
+        try {
+          await setDoc(doc(db, 'users', cred.user.uid), {
+            id: cred.user.uid,
+            fullName: targetName,
             email: targetEmail,
-            password,
-            options: { data: { full_name: targetName } }
-          });
-          if (error) throw error;
-          if (data.user) {
-            try {
-              await supabase.from('profiles').upsert([
-                { id: data.user.id, full_name: targetName, role: 'client' }
-              ], { onConflict: 'id' });
-            } catch {}
-          }
-          
-          if (data.session) {
-            localStorage.setItem('buildsync_user_name', targetName);
-            localStorage.setItem('buildsync_user_email', isEmail ? targetEmail : '');
-            setSuccessMsg('Account created successfully! Taking you to your portal...');
-            setTimeout(() => {
-              onLogin('client', targetName, isEmail ? targetEmail : '');
-            }, 600);
-            return;
-          } else {
-            // Email confirmation link was sent
-            setSuccessMsg('Account created! If email confirmation is enabled on your project, please check your inbox to confirm, then sign in.');
-            setIsSignUp(false);
-            setLoading(false);
-            return;
-          }
-        } else {
-          const { data, error } = await supabase.auth.signInWithPassword({ 
-            email: targetEmail, 
-            password 
-          });
-          if (error) throw error;
-          if (data.user) {
-            let resolvedName = targetName;
-            try {
-              const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', data.user.id).single();
-              if (profile?.full_name) {
-                resolvedName = profile.full_name;
-              }
-            } catch {}
-            localStorage.setItem('buildsync_user_name', resolvedName);
-            localStorage.setItem('buildsync_user_email', isEmail ? targetEmail : '');
-            onLogin('client', resolvedName, isEmail ? targetEmail : '');
-            return;
-          }
+            role: 'client',
+            createdAt: new Date().toISOString()
+          }, { merge: true });
+        } catch (profileErr) {
+          console.warn('Firestore profile write notice:', profileErr);
         }
-      } catch (sbErr: any) {
-        console.warn('Supabase auth attempt:', sbErr);
-        setErrorMsg(getFriendlyErrorMessage(sbErr, isSignUp));
-        setLoading(false);
-        return;
+
+        localStorage.setItem('buildsync_user_name', targetName);
+        localStorage.setItem('buildsync_user_email', targetEmail);
+        sessionStorage.setItem('buildsync_active_portal', 'true');
+        setSuccessMsg('Account created successfully! Taking you to your portal...');
+        setTimeout(() => {
+          onLogin('client', targetName, targetEmail);
+        }, 400);
+      } else {
+        await signInWithEmailAndPassword(fbAuth, targetEmail, password);
+        localStorage.setItem('buildsync_user_name', targetName);
+        localStorage.setItem('buildsync_user_email', targetEmail);
+        sessionStorage.setItem('buildsync_active_portal', 'true');
+        setSuccessMsg('Signed in successfully! Loading portal...');
+        setTimeout(() => {
+          onLogin('client', targetName, targetEmail);
+        }, 400);
       }
-    } else {
-      setErrorMsg('Authentication service is not connected. Please check your internet connection.');
+    } catch (err: any) {
+      console.warn('Firebase email auth error:', err);
+      setErrorMsg(getFirebaseErrorMessage(err, isSignUp));
       setLoading(false);
     }
+  };
+
+  const handleDemoContinue = () => {
+    const resolvedName = fullName.trim() || (emailOrUsername.includes('@') ? emailOrUsername.split('@')[0] : emailOrUsername) || 'Client User';
+    const resolvedEmail = emailOrUsername.includes('@') ? emailOrUsername.trim() : 'client@buildsync.com';
+    localStorage.setItem('buildsync_user_name', resolvedName);
+    localStorage.setItem('buildsync_user_email', resolvedEmail);
+    onLogin('client', resolvedName, resolvedEmail);
   };
 
   return (
@@ -222,12 +266,87 @@ export default function AuthView({ onLogin, onBack }: AuthViewProps) {
             </div>
           )}
 
+          {showDemoAccess && (
+            <div className="mb-5 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-3">
+              <div className="font-semibold text-amber-300 flex items-center gap-1.5 text-sm">
+                <span>Instant Demo Access Available</span>
+              </div>
+              <p className="leading-relaxed text-amber-200/90 text-xs">
+                To enable email signups on Firebase, open your Firebase Console (Authentication → Sign-in method → Enable Email/Password). Or enter immediately below:
+              </p>
+              <button
+                type="button"
+                onClick={handleDemoContinue}
+                className="w-full py-2.5 px-3 bg-amber-500/25 hover:bg-amber-500/35 text-amber-100 rounded-lg font-bold border border-amber-500/40 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <span>Enter Portal Now (Instant Access)</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          )}
+
           {successMsg && (
             <div className="mb-5 bg-green-500/10 border border-green-500/50 text-green-400 text-sm p-3.5 rounded-xl flex items-center gap-2">
               <CheckCircle2 size={17} className="flex-shrink-0" />
               <span>{successMsg}</span>
             </div>
           )}
+
+          {fbAuth.currentUser && (
+            <div className="mb-5 p-3.5 rounded-xl bg-white/[0.04] border border-[#10B981]/30 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] text-white/50 uppercase tracking-wider font-semibold">Active Session</p>
+                <p className="text-xs text-emerald-400 font-medium truncate">{fbAuth.currentUser.email || fbAuth.currentUser.displayName}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onLogin('client', fbAuth.currentUser?.displayName || '', fbAuth.currentUser?.email || '')}
+                  className="text-xs bg-[#10B981] hover:bg-[#059669] text-white font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-sm"
+                >
+                  Enter Portal
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try { await fbAuth.signOut(); } catch {}
+                    localStorage.removeItem('buildsync_user_name');
+                    localStorage.removeItem('buildsync_user_email');
+                    localStorage.removeItem('buildsync_user_avatar');
+                    sessionStorage.removeItem('buildsync_active_portal');
+                    setErrorMsg('');
+                    setSuccessMsg('Signed out. Pick another Google account or use email below.');
+                  }}
+                  className="text-xs text-white/60 hover:text-white underline cursor-pointer px-1 py-1"
+                >
+                  Switch
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* One-Click Google Sign-In with Account Selection */}
+          <button
+            type="button"
+            disabled={googleLoading || loading}
+            onClick={handleGoogleSignIn}
+            className="w-full mb-2 flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-white/15 bg-white/[0.07] hover:bg-white/[0.12] text-white text-sm font-semibold transition-all cursor-pointer shadow-sm hover:scale-[1.01] disabled:opacity-50"
+          >
+            <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+              <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z" />
+              <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z" />
+              <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9z" />
+              <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.2L1.9 16c1.8 3.7 5.6 7 10.1 7z" />
+            </svg>
+            <span>{googleLoading ? 'Connecting to Google...' : (isSignUp ? 'Sign up with Google' : 'Continue with Google')}</span>
+          </button>
+          <p className="text-[11px] text-white/40 text-center mb-4">Choose from any Google account</p>
+
+          <div className="flex items-center my-4">
+            <div className="flex-1 border-t border-white/10" />
+            <span className="px-3 text-[11px] uppercase tracking-wider text-white/40 font-medium">or with email</span>
+            <div className="flex-1 border-t border-white/10" />
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (
@@ -306,9 +425,9 @@ export default function AuthView({ onLogin, onBack }: AuthViewProps) {
 
           <div className="mt-6 text-center text-sm text-[#A0A0A0]">
             {isSignUp ? (
-              <>Already have an account? <button onClick={() => { setIsSignUp(false); setErrorMsg(''); }} className="text-[#10B981] hover:underline font-bold ml-1 cursor-pointer">Sign In</button></>
+              <>Already have an account? <button onClick={() => { setIsSignUp(false); setErrorMsg(''); setShowDemoAccess(false); }} className="text-[#10B981] hover:underline font-bold ml-1 cursor-pointer">Sign In</button></>
             ) : (
-              <>Don't have an account? <button onClick={() => { setIsSignUp(true); setErrorMsg(''); }} className="text-[#10B981] hover:underline font-bold ml-1 cursor-pointer">Sign Up</button></>
+              <>Don't have an account? <button onClick={() => { setIsSignUp(true); setErrorMsg(''); setShowDemoAccess(false); }} className="text-[#10B981] hover:underline font-bold ml-1 cursor-pointer">Sign Up</button></>
             )}
           </div>
         </div>

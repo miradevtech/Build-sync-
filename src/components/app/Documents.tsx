@@ -1,7 +1,32 @@
 import React, { useState, useRef } from 'react';
 import { FileText, Download, Eye, Folder, Search, Filter, X, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../../lib/supabase';
+const INITIAL_DOCS = [
+  {
+    id: 1,
+    name: 'Architectural_Master_Plan_v3.pdf',
+    type: 'Building Plans',
+    date: 'Sept 20, 2026',
+    size: '14.2 MB',
+    url: '#'
+  },
+  {
+    id: 2,
+    name: 'General_Contract_Agreement_Signed.pdf',
+    type: 'Contracts',
+    date: 'Sept 15, 2026',
+    size: '3.8 MB',
+    url: '#'
+  },
+  {
+    id: 3,
+    name: 'City_Building_Permit_Approved.pdf',
+    type: 'Permits',
+    date: 'Sept 12, 2026',
+    size: '1.9 MB',
+    url: '#'
+  }
+];
 
 export default function Documents() {
   const [activeCategory, setActiveCategory] = useState('All');
@@ -13,41 +38,7 @@ export default function Documents() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadName, setUploadName] = useState('');
   const [uploadType, setUploadType] = useState('Other');
-
-  
-  // Supabase Fetch Logic
-  React.useEffect(() => {
-    async function fetchDocs() {
-      if (!supabase) return;
-      try {
-        const { data, error } = await supabase
-          .from('documents')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          const mappedData = data.map((item: any) => ({
-            id: item.id,
-            name: item.name,
-            type: 'Other', 
-            date: new Date(item.created_at).toLocaleDateString(),
-            size: '0 KB', 
-            url: item.file_url
-          }));
-          
-          setDocuments(mappedData);
-        }
-      } catch (err) {
-        console.warn('Error fetching documents:', err);
-      }
-    }
-    
-    fetchDocs();
-  }, []);
-
-  const [documents, setDocuments] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<any[]>(INITIAL_DOCS);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
