@@ -46,7 +46,7 @@ export default function Footer({ onOpenModal, onOpenAuth }: FooterProps) {
                   onClick={() => onOpenAuth ? onOpenAuth() : onOpenModal('get-started')}
                   className="text-brand-gold font-semibold hover:underline transition-colors flex items-center gap-1.5 group text-left cursor-pointer"
                 >
-                  <span>Client Login</span>
+                  <span>Client Sign Up</span>
                   <ArrowUpRight size={14} className="opacity-70 group-hover:opacity-100 transition-opacity text-brand-gold" />
                 </button>
               </li>

@@ -129,14 +129,14 @@ export default function Hero({ onOpenModal, onOpenAuth }: HeroProps) {
           </p>
           
           <div className="mt-10 flex flex-wrap gap-3.5 justify-center items-center">
-            {/* Primary Client Login Button */}
+            {/* Primary Client Sign Up Button */}
             <button 
               onClick={onOpenAuth}
               className="bg-gradient-to-r from-brand-gold via-emerald-400 to-brand-gold hover:from-brand-gold-hover hover:to-brand-gold text-[#06110D] px-7 py-3.5 rounded-full text-xs sm:text-sm font-bold uppercase tracking-widest transition-all shadow-[0_4px_24px_rgba(16,185,129,0.35)] hover:shadow-[0_4px_30px_rgba(16,185,129,0.5)] active:scale-95 flex items-center justify-center gap-2.5 cursor-pointer border border-white/30"
-              title="Sign in to Client Portal"
+              title="Sign up for Client Portal"
             >
               <LogIn size={16} className="text-[#06110D]" />
-              <span>Client Login</span>
+              <span>Client Sign Up</span>
               <ArrowRight size={16} />
             </button>
 
