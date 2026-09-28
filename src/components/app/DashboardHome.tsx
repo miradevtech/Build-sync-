@@ -28,7 +28,7 @@ export default function DashboardHome({ onNavigate, userName }: DashboardHomePro
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-[#06110D]">Welcome back, {userName ? userName.split(' ')[0] : 'Client'}</h1>
+        <h1 className="text-2xl font-semibold text-[#06110D]">Welcome, {userName ? userName.split(' ')[0] : 'Client'}</h1>
         <p className="text-[#666] text-sm">Here is what's happening with your projects today.</p>
       </div>
 

@@ -481,7 +481,9 @@ export default function BuildSyncApp({
                 title="Notifications"
               >
                 <Bell size={18} />
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+                {role === 'admin' && (
+                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+                )}
               </button>
 
               <AnimatePresence>
@@ -519,18 +521,11 @@ export default function BuildSyncApp({
                           </div>
                         </>
                       ) : (
-                        <>
-                          <div className="p-4 hover:bg-[#FFFFFF] transition-colors">
-                            <p className="font-bold text-[#06110D]">Foundation Pour Completed</p>
-                            <p className="text-[#666] mt-0.5">Site engineering team verified concrete curing test specs.</p>
-                            <span className="text-[10px] text-[#999] mt-1 block">10 mins ago</span>
-                          </div>
-                          <div className="p-4 hover:bg-[#FFFFFF] transition-colors">
-                            <p className="font-bold text-[#06110D]">Consultation Confirmed</p>
-                            <p className="text-[#666] mt-0.5">Discovery & Architectural Review scheduled with Sarah Jenkins.</p>
-                            <span className="text-[10px] text-[#999] mt-1 block">2 hours ago</span>
-                          </div>
-                        </>
+                        <div className="p-6 text-center text-[#666]">
+                          <Bell size={24} className="mx-auto mb-2 text-[#A7F3D0]" />
+                          <p className="font-semibold text-[#06110D] text-xs">No New Notifications</p>
+                          <p className="text-[11px] text-[#888] mt-1">Project milestone alerts and message updates will appear here.</p>
+                        </div>
                       )}
                     </div>
                   </motion.div>

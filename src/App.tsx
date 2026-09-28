@@ -17,13 +17,19 @@ export default function App() {
   const [currentView, setCurrentView] = useState<'landing' | 'auth' | 'app'>('landing');
   const [userRole, setUserRole] = useState<UserRole>('client');
   const [userName, setUserName] = useState<string>(() => {
-    return localStorage.getItem('buildsync_user_name') || '';
+    return sessionStorage.getItem('buildsync_active_portal') === 'true'
+      ? localStorage.getItem('buildsync_user_name') || ''
+      : '';
   });
   const [userEmail, setUserEmail] = useState<string>(() => {
-    return localStorage.getItem('buildsync_user_email') || '';
+    return sessionStorage.getItem('buildsync_active_portal') === 'true'
+      ? localStorage.getItem('buildsync_user_email') || ''
+      : '';
   });
   const [userAvatar, setUserAvatar] = useState<string | null>(() => {
-    return localStorage.getItem('buildsync_user_avatar') || null;
+    return sessionStorage.getItem('buildsync_active_portal') === 'true'
+      ? localStorage.getItem('buildsync_user_avatar') || null
+      : null;
   });
   const [activeModal, setActiveModal] = useState<ModalKey>(null);
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
@@ -38,21 +44,19 @@ export default function App() {
         let finalRole: UserRole = 'client';
         let finalAvatar: string | null = fbUser.photoURL || null;
 
-        setUserEmail(email);
-        setUserName(finalName);
-        setUserRole(finalRole);
-        if (finalAvatar) setUserAvatar(finalAvatar);
-        if (email) localStorage.setItem('buildsync_user_email', email);
-        localStorage.setItem('buildsync_user_name', finalName);
-
-        // If user was on the login/signup screen, immediately transition to dashboard!
-        setCurrentView((prev) => (prev === 'auth' ? 'app' : prev));
+        // Only hydrate user profile if active portal session is explicitly intended
+        if (sessionStorage.getItem('buildsync_active_portal') === 'true') {
+          setUserEmail(email);
+          setUserName(finalName);
+          setUserRole(finalRole);
+          if (finalAvatar) setUserAvatar(finalAvatar);
+        }
 
         // Non-blocking background fetch of Firestore user document
         getDoc(doc(db, 'users', fbUser.uid)).then((userDoc) => {
           if (userDoc.exists()) {
             const data = userDoc.data();
-            if (data.fullName) {
+            if (data.fullName && sessionStorage.getItem('buildsync_active_portal') === 'true') {
               setUserName(data.fullName);
               localStorage.setItem('buildsync_user_name', data.fullName);
             }
@@ -89,6 +93,8 @@ export default function App() {
     localStorage.removeItem('buildsync_user_name');
     localStorage.removeItem('buildsync_user_email');
     localStorage.removeItem('buildsync_user_avatar');
+    localStorage.removeItem('buildsync_client_projects');
+    localStorage.removeItem('buildsync_client_docs');
     setIsAuthenticating(false);
     setCurrentView('landing');
   };
@@ -115,13 +121,18 @@ export default function App() {
     setActiveModal(null);
   };
 
-  const handleOpenAuth = () => {
-    // If the user already has an active session, open the dashboard directly
-    if (fbAuth.currentUser || userEmail) {
-      sessionStorage.setItem('buildsync_active_portal', 'true');
-      setCurrentView('app');
-      return;
-    }
+  const handleOpenAuth = async () => {
+    // When user clicks "Client Sign Up", clear any stale session and open clean Sign Up screen
+    try { await fbSignOut(fbAuth); } catch {}
+    sessionStorage.removeItem('buildsync_active_portal');
+    setUserEmail('');
+    setUserName('');
+    setUserAvatar(null);
+    localStorage.removeItem('buildsync_user_name');
+    localStorage.removeItem('buildsync_user_email');
+    localStorage.removeItem('buildsync_user_avatar');
+    localStorage.removeItem('buildsync_client_projects');
+    localStorage.removeItem('buildsync_client_docs');
     setUserRole('client');
     setCurrentView('auth');
   };

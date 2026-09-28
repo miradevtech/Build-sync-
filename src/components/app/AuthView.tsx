@@ -5,6 +5,7 @@ import {
   auth as fbAuth, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
+  fbSignOut,
   db, 
   doc, 
   setDoc 
@@ -25,6 +26,16 @@ export default function AuthView({ onLogin, onBack }: AuthViewProps) {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [showDemoAccess, setShowDemoAccess] = useState(false);
+
+  React.useEffect(() => {
+    fbSignOut(fbAuth).catch(() => {});
+    localStorage.removeItem('buildsync_user_name');
+    localStorage.removeItem('buildsync_user_email');
+    localStorage.removeItem('buildsync_user_avatar');
+    localStorage.removeItem('buildsync_client_projects');
+    localStorage.removeItem('buildsync_client_docs');
+    sessionStorage.removeItem('buildsync_active_portal');
+  }, []);
 
   // Friendly error messages tailored strictly for Firebase Auth
   const getFirebaseErrorMessage = (err: any, isSignUpMode: boolean): string => {
